@@ -18,7 +18,7 @@ Uma aplicação web completa para upload e gerenciamento de galeria de imagens, 
 - [Troubleshooting](#troubleshooting)
 - [Próximos Passos](#próximos-passos)
 
-## 🎯 Sobre o Projeto
+## 🎯 Sobre o Projeto {#sobre-o-projeto}
 
 Este projeto é uma aplicação full-stack simples para upload e gerenciamento de imagens. Permite que usuários façam upload de múltiplas imagens simultaneamente, visualizem uma galeria com previews e gerenciem as imagens salvas. Todas as imagens são persistidas em um banco de dados SQLite e armazenadas no servidor.
 
@@ -32,7 +32,7 @@ Este projeto é uma aplicação full-stack simples para upload e gerenciamento d
 - ✅ Gerenciamento de imagens (listar, deletar)
 - ✅ Visualização do banco de dados
 
-## 🛠 Tecnologias Utilizadas
+## 🛠 Tecnologias Utilizadas {#tecnologias-utilizadas}
 
 ### Frontend
 - **React 18.2** - Biblioteca JavaScript para construção de interfaces
@@ -45,7 +45,7 @@ Este projeto é uma aplicação full-stack simples para upload e gerenciamento d
 - **Multer 1.4** - Middleware para upload de arquivos
 - **SQLite3 5.1** - Banco de dados relacional embutido
 
-## 📦 Requisitos
+## 📦 Requisitos {#requisitos}
 
 Antes de começar, certifique-se de ter instalado:
 
@@ -59,7 +59,7 @@ node --version
 npm --version
 ```
 
-## 🚀 Instalação
+## 🚀 Instalação {#instalação}
 
 ### 1. Clone ou baixe o projeto
 
@@ -83,7 +83,7 @@ Quando você iniciar o servidor pela primeira vez, serão criados automaticament
 - `database.db` - Banco de dados SQLite
 - `server/uploads/` - Pasta para armazenar as imagens
 
-## 💻 Como Usar
+## 💻 Como Usar {#como-usar}
 
 ### Iniciar o Servidor Backend
 
@@ -125,7 +125,7 @@ Acesse `http://localhost:5173` no seu navegador.
 2. **Visualizar**: As imagens aparecerão automaticamente na galeria abaixo
 3. **Deletar**: Clique no botão "✕" em qualquer imagem para removê-la
 
-## 📁 Estrutura do Projeto
+## 📁 Estrutura do Projeto {#estrutura-do-projeto}
 
 ```
 galeria-upload/
@@ -150,7 +150,7 @@ galeria-upload/
 └── README.md                # Este arquivo
 ```
 
-## 🔌 API Endpoints
+## 🔌 API Endpoints {#api-endpoints}
 
 A API REST está disponível em `http://localhost:3001/api`
 
@@ -270,7 +270,7 @@ Visualiza o banco de dados em uma página HTML formatada.
 
 Acesse diretamente no navegador: `http://localhost:3001/db`
 
-## 🗄 Banco de Dados
+## 🗄 Banco de Dados {#banco-de-dados}
 
 ### Estrutura da Tabela `images`
 
@@ -298,7 +298,7 @@ CREATE TABLE images (
 | `size` | INTEGER | Tamanho do arquivo em bytes |
 | `created_at` | DATETIME | Data e hora de criação (formato ISO) |
 
-## 📜 Scripts Disponíveis
+## 📜 Scripts Disponíveis {#scripts-disponíveis}
 
 Execute os scripts usando `npm run [script]`:
 
@@ -310,7 +310,7 @@ Execute os scripts usando `npm run [script]`:
 | `server` | `npm run server` | Inicia o servidor Express (backend) |
 | `view-db` | `npm run view-db` | Visualiza o banco de dados no terminal |
 
-## 👁 Visualizar Banco de Dados
+## 👁 Visualizar Banco de Dados {#visualizar-banco-de-dados}
 
 Existem três formas de visualizar os dados do banco:
 
@@ -346,7 +346,7 @@ Mostra uma saída formatada no terminal com todas as informações.
 2. Abra o arquivo `database.db` na raiz do projeto
 3. Visualize e edite os dados diretamente na interface gráfica
 
-## ✨ Funcionalidades
+## ✨ Funcionalidades {#funcionalidades}
 
 ### ✅ Implementadas
 
@@ -378,7 +378,7 @@ Mostra uma saída formatada no terminal com todas as informações.
 - [ ] Edição de metadados
 - [ ] Tags e categorias
 
-## 🐛 Troubleshooting
+## 🐛 Troubleshooting {#troubleshooting}
 
 ### Problema: "Porta já está em uso"
 
@@ -418,7 +418,7 @@ const PORT = 3002  // ou outra porta disponível
 3. Execute `npm install` novamente
 4. Verifique sua versão do Node.js: `node --version` (deve ser 16+)
 
-## 🎓 Próximos Passos
+## 🎓 Próximos Passos {#próximos-passos}
 
 ### Para Desenvolvedores
 
