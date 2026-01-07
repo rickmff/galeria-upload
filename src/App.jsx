@@ -118,8 +118,8 @@ function App() {
         setImages(data.images)
       }
     } catch (error) {
-      console.error('Erro ao carregar imagens:', error)
-      showToast('Erro ao carregar imagens', 'error')
+      console.error('Error loading images:', error)
+      showToast('Error loading images', 'error')
     }
   }
 
@@ -127,7 +127,7 @@ function App() {
     const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'))
 
     if (imageFiles.length === 0) {
-      showToast('Por favor, selecione apenas imagens', 'error')
+      showToast('Please select only images', 'error')
       return
     }
 
@@ -156,13 +156,13 @@ function App() {
 
       if (data.success) {
         setImages(prev => [...data.images, ...prev])
-        showToast(`${data.images.length} imagem(ns) enviada(s) com sucesso!`, 'success')
+        showToast(`${data.images.length} image(s) uploaded successfully!`, 'success')
       } else {
-        showToast('Erro ao fazer upload: ' + data.error, 'error')
+        showToast('Upload error: ' + data.error, 'error')
       }
     } catch (error) {
-      console.error('Erro no upload:', error)
-      showToast('Erro ao fazer upload das imagens', 'error')
+      console.error('Upload error:', error)
+      showToast('Error uploading images', 'error')
     } finally {
       setLoading(false)
       setTimeout(() => setUploadProgress(0), 500)
@@ -198,7 +198,7 @@ function App() {
     e.stopPropagation()
 
     setConfirmModal({
-      message: 'Tem certeza que deseja deletar esta imagem?',
+      message: 'Are you sure you want to delete this image?',
       onConfirm: async () => {
         try {
           const response = await fetch(`/api/images/${id}`, {
@@ -209,17 +209,17 @@ function App() {
 
           if (data.success) {
             setImages(prev => prev.filter(img => img.id !== id))
-            showToast('Imagem deletada com sucesso', 'success')
+            showToast('Image deleted successfully', 'success')
             if (selectedImage?.id === id) {
               setSelectedImage(null)
             }
             setSelectedImageIds(prev => prev.filter(imgId => imgId !== id))
           } else {
-            showToast('Erro ao deletar imagem: ' + data.error, 'error')
+            showToast('Error deleting image: ' + data.error, 'error')
           }
         } catch (error) {
-          console.error('Erro ao deletar:', error)
-          showToast('Erro ao deletar imagem', 'error')
+          console.error('Error deleting:', error)
+          showToast('Error deleting image', 'error')
         }
         setConfirmModal(null)
       },
@@ -250,15 +250,15 @@ function App() {
         setImages(prev => prev.map(img =>
           img.id === id ? { ...img, originalname: data.originalname } : img
         ))
-        showToast('Imagem renomeada com sucesso', 'success')
+        showToast('Image renamed successfully', 'success')
         setRenamingId(null)
         setRenameValue('')
       } else {
-        showToast('Erro ao renomear: ' + data.error, 'error')
+        showToast('Error renaming: ' + data.error, 'error')
       }
     } catch (error) {
-      console.error('Erro ao renomear:', error)
-      showToast('Erro ao renomear imagem', 'error')
+      console.error('Error renaming:', error)
+      showToast('Error renaming image', 'error')
     }
   }
 
@@ -301,11 +301,11 @@ function App() {
           document.body.removeChild(a)
         }
       }
-      showToast(`${selectedImageIds.length} imagem(ns) baixada(s) com sucesso!`, 'success')
+      showToast(`${selectedImageIds.length} image(s) downloaded successfully!`, 'success')
       setSelectedImageIds([])
     } catch (error) {
-      console.error('Erro ao baixar imagens:', error)
-      showToast('Erro ao baixar imagens', 'error')
+      console.error('Error downloading images:', error)
+      showToast('Error downloading images', 'error')
     }
   }
 
@@ -323,9 +323,9 @@ function App() {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('pt-BR', {
-      day: '2-digit',
+    return date.toLocaleDateString('en-US', {
       month: '2-digit',
+      day: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -336,13 +336,13 @@ function App() {
     <div className="min-h-screen bg-background text-foreground transition-colors">
       <header className="border-b border-border bg-card">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-semibold text-foreground">Galeria</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Gallery</h1>
           <div className="flex gap-2 items-center">
             <button
               className="w-8 h-8 p-0 rounded-md bg-transparent border-none cursor-pointer flex items-center justify-center text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground"
               onClick={() => setDarkMode(!darkMode)}
-              aria-label="Alternar tema"
-              title={darkMode ? 'Modo claro' : 'Modo escuro'}
+              aria-label="Toggle theme"
+              title={darkMode ? 'Light mode' : 'Dark mode'}
             >
               {darkMode ? (
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -369,9 +369,9 @@ function App() {
                   : 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   }`}
                 onClick={() => setViewMode('grid')}
-                aria-label="Visualização em grade"
+                aria-label="Grid view"
                 aria-pressed={viewMode === 'grid'}
-                title="Visualização em grade"
+                title="Grid view"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={viewMode === 'grid' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="7" height="7"></rect>
@@ -386,9 +386,9 @@ function App() {
                   : 'bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   }`}
                 onClick={() => setViewMode('list')}
-                aria-label="Visualização em linha"
+                aria-label="List view"
                 aria-pressed={viewMode === 'list'}
-                title="Visualização em linha"
+                title="List view"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill={viewMode === 'list' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="8" y1="6" x2="21" y2="6"></line>
@@ -424,19 +424,14 @@ function App() {
           <div className="flex-1 flex items-center gap-3">
             <input
               type="text"
-              placeholder="Buscar imagens..."
+              placeholder="Search images..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground text-sm transition-all focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
             />
             {searchTerm && (
               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {filteredImages.length} de {images.length}
-              </span>
-            )}
-            {selectedImageIds.length > 0 && (
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {selectedImageIds.length} selecionada(s)
+                {filteredImages.length} of {images.length}
               </span>
             )}
           </div>
@@ -449,7 +444,7 @@ function App() {
             </button>
           )}
           <label htmlFor="file-input" className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border-none inline-flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90">
-            {loading ? 'Enviando...' : 'Upload'}
+            {loading ? 'Uploading...' : 'Upload'}
           </label>
           <input
             ref={fileInputRef}
@@ -469,7 +464,7 @@ function App() {
               return (
                 <div
                   key={image.id}
-                  className={`bg-card border rounded-lg overflow-hidden cursor-pointer transition-all hover:border-ring hover:shadow-lg ${isSelected ? 'border-primary ring-2 ring-primary' : 'border-border'} ${viewMode === 'list' ? 'flex flex-row items-center p-2 gap-3' : ''}`}
+                  className={`group relative border rounded-lg overflow-hidden cursor-pointer transition-all duration-200 ${isSelected ? 'bg-blue-500/10 border-blue-500 ring-1 ring-blue-500 shadow-md' : 'bg-card border-border hover:border-muted-foreground/50'} ${viewMode === 'list' ? 'flex flex-row items-center p-2 gap-3' : ''}`}
                   onClick={(e) => toggleImageSelection(image.id, e)}
                   onDoubleClick={() => handleImageDoubleClick(image)}
                 >
@@ -478,25 +473,48 @@ function App() {
                       src={image.url}
                       alt={image.originalname}
                       loading="lazy"
-                      className={`w-full h-full object-cover transition-transform ${viewMode === 'list' ? 'rounded-md' : ''} ${viewMode === 'grid' ? 'hover:scale-105' : ''}`}
+                      className={`w-full h-full object-cover transition-transform duration-500 ${isSelected ? 'scale-105' : 'group-hover:scale-110'}`}
                     />
-                    {isSelected && (
-                      <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-xs font-semibold z-10">
-                        ✓
+
+                    {/* Selection Overlay (Google Photos Style) */}
+                    <div className={`absolute inset-0 transition-all duration-200 ${isSelected ? 'bg-blue-500/20 opacity-100' : 'opacity-0 group-hover:opacity-100 bg-black/10'}`}>
+                      {/* Circular checkbox in the top left corner */}
+                      <div className="absolute top-2 left-2 transition-all duration-300">
+                        {isSelected ? (
+                          <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-lg border-2 border-white">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                          </div>
+                        ) : (
+                          <div className="w-6 h-6 rounded-full border-2 border-white bg-black/20 backdrop-blur-sm"></div>
+                        )}
                       </div>
-                    )}
+                    </div>
+
+                    {/* Delete Icon (visible on hover) */}
                     {viewMode === 'grid' && (
-                      <div className="absolute inset-0 opacity-0 transition-opacity hover:opacity-100 pointer-events-none group">
-                        <button
-                          onClick={(e) => removeImage(image.id, e)}
-                          className="absolute top-2 right-2 w-8 h-8 p-0 rounded-md bg-foreground/80 backdrop-blur-sm border-none cursor-pointer flex items-center justify-center text-destructive transition-all hover:bg-destructive/20 pointer-events-auto"
-                        >
-                          🗑️
-                        </button>
-                      </div>
+                      <svg
+                        onClick={(e) => removeImage(image.id, e)}
+                        className="absolute top-2 right-2 z-30 cursor-pointer text-white drop-shadow-lg hover:text-destructive transition-all opacity-0 group-hover:opacity-100 filter hover:drop-shadow-2xl pointer-events-auto"
+                        title="Delete image"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M3 6h18"></path>
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                      </svg>
                     )}
                   </div>
-                  <div className={`${viewMode === 'list' ? 'flex-1 p-0 min-w-0 flex flex-col gap-1' : 'p-3'}`}>
+                  <div className={`${viewMode === 'list' ? 'flex-1 p-0 min-w-0 flex flex-col gap-1' : `p-3 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent transition-transform duration-300 ease-in-out ${renamingId === image.id ? 'translate-y-0' : 'translate-y-full group-hover:translate-y-0'}`}`}>
                     {renamingId === image.id ? (
                       <div className="flex gap-1 items-center flex-wrap">
                         <input
@@ -525,9 +543,9 @@ function App() {
                       </div>
                     ) : (
                       <>
-                        <div className={`flex items-center justify-between gap-2 w-full ${viewMode === 'list' ? '' : ''}`}>
+                        <div className={`flex items-center justify-between gap-2 w-full`}>
                           <p
-                            className={`font-medium overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer transition-colors hover:text-primary ${viewMode === 'list' ? 'flex-1 min-w-0 text-xs mb-0' : 'text-sm mb-1'}`}
+                            className={`font-medium overflow-hidden text-ellipsis whitespace-nowrap cursor-pointer transition-colors hover:text-primary ${viewMode === 'list' ? 'flex-1 min-w-0 text-xs mb-0' : 'text-sm mb-0 text-white'}`}
                             title={image.originalname}
                             onClick={(e) => {
                               e.stopPropagation()
@@ -549,11 +567,13 @@ function App() {
                             </button>
                           )}
                         </div>
-                        <div className={`flex gap-2 text-xs text-muted-foreground flex-wrap ${viewMode === 'list' ? 'text-[0.6875rem] gap-1.5' : ''}`}>
-                          <span>{formatFileSize(image.size)}</span>
-                          <span>•</span>
-                          <span>{formatDate(image.created_at)}</span>
-                        </div>
+                        {viewMode === 'list' && (
+                          <div className="flex gap-2 text-[0.6875rem] text-muted-foreground flex-wrap gap-1.5">
+                            <span>{formatFileSize(image.size)}</span>
+                            <span>•</span>
+                            <span>{formatDate(image.created_at)}</span>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -566,16 +586,16 @@ function App() {
             {loading ? (
               <>
                 <div className="w-full max-w-md h-72 mx-auto mb-4 bg-muted rounded-lg animate-pulse"></div>
-                <p>Carregando...</p>
+                <p>Loading...</p>
               </>
             ) : searchTerm ? (
               <>
-                <p>Nenhuma imagem encontrada para "{searchTerm}"</p>
+                <p>No images found for "{searchTerm}"</p>
               </>
             ) : (
               <>
-                <p>Nenhuma imagem salva ainda</p>
-                <p className="text-sm mt-2">Faça upload de imagens para começar</p>
+                <p>No images saved yet</p>
+                <p className="text-sm mt-2">Upload images to get started</p>
               </>
             )}
           </div>
@@ -602,9 +622,9 @@ function App() {
             <div className="p-4">
               <h3 className="text-base font-semibold mb-2">{selectedImage.originalname}</h3>
               <div className="flex gap-4 flex-wrap text-sm text-muted-foreground">
-                <span>Tamanho: {formatFileSize(selectedImage.size)}</span>
-                <span>Tipo: {selectedImage.mimetype}</span>
-                <span>Data: {formatDate(selectedImage.created_at)}</span>
+                <span>Size: {formatFileSize(selectedImage.size)}</span>
+                <span>Type: {selectedImage.mimetype}</span>
+                <span>Date: {formatDate(selectedImage.created_at)}</span>
               </div>
             </div>
           </div>
@@ -619,24 +639,27 @@ function App() {
 
       {confirmModal && (
         <div
-          className="fixed inset-0 bg-foreground/50 flex items-center justify-center z-[2000] backdrop-blur-sm animate-[fadeIn_0.2s]"
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2000] backdrop-blur-sm"
           onClick={confirmModal.onCancel}
         >
-          <div className="bg-card rounded-lg p-6 max-w-md w-[90%] shadow-2xl animate-[slideDown_0.2s]" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-xl font-semibold mb-3 text-foreground">Confirmar ação</h3>
+          <div
+            className="bg-card rounded-xl p-6 max-w-md w-[90%] mx-4 shadow-2xl border border-border"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-xl font-semibold mb-3 text-foreground">Confirm action</h3>
             <p className="text-muted-foreground mb-6 leading-relaxed">{confirmModal.message}</p>
             <div className="flex gap-3 justify-end">
               <button
-                className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border-none inline-flex items-center justify-center bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border border-border inline-flex items-center justify-center bg-background text-foreground hover:bg-accent"
                 onClick={confirmModal.onCancel}
               >
-                Cancelar
+                Cancel
               </button>
               <button
-                className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border-none inline-flex items-center justify-center bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border-none inline-flex items-center justify-center bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm"
                 onClick={confirmModal.onConfirm}
               >
-                Confirmar
+                Confirm
               </button>
             </div>
           </div>
