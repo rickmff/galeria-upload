@@ -4,4 +4,6 @@ dist
 database.db
 server/uploads
 *.log
+.env
+.env.local
 

@@ -5,6 +5,29 @@ import { promisify } from 'util'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
+import dotenv from 'dotenv'
+import { analyzeImage, interpretSearch, calculateCost } from './gemini.js'
+
+// Carregar .env - tenta do diretório raiz primeiro
+const envPath = path.join(process.cwd(), '.env')
+dotenv.config({ path: envPath })
+
+// Verificar se a API key está configurada
+const apiKey = (process.env.GEMINI_API_KEY || '').trim()
+if (!apiKey) {
+  console.warn('⚠️  GEMINI_API_KEY não encontrada no .env')
+  console.warn(`   Procurando em: ${envPath}`)
+  console.warn('   Crie um arquivo .env na raiz do projeto com: GEMINI_API_KEY=sua_chave_aqui')
+  console.warn('   Obtenha sua chave gratuita em: https://aistudio.google.com/apikey')
+} else {
+  console.log(`✅ GEMINI_API_KEY configurada (${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)})`)
+  console.log(`   Análise inteligente ativada`)
+
+  // Validar formato básico
+  if (apiKey.length < 20) {
+    console.error(`❌ AVISO: API Key parece muito curta (${apiKey.length} caracteres). Verifique se está correta.`)
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -21,7 +44,33 @@ db.serialize(() => {
     originalname TEXT NOT NULL,
     mimetype TEXT NOT NULL,
     size INTEGER NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ai_description TEXT,
+    ai_keywords TEXT,
+    ai_document_type TEXT,
+    ai_country TEXT,
+    ai_typical_use TEXT
+  )`)
+
+  // Adicionar colunas novas se não existirem (migração para bancos existentes)
+  db.run(`ALTER TABLE images ADD COLUMN ai_description TEXT`, () => { })
+  db.run(`ALTER TABLE images ADD COLUMN ai_keywords TEXT`, () => { })
+  db.run(`ALTER TABLE images ADD COLUMN ai_document_type TEXT`, () => { })
+  db.run(`ALTER TABLE images ADD COLUMN ai_country TEXT`, () => { })
+  db.run(`ALTER TABLE images ADD COLUMN ai_typical_use TEXT`, () => { })
+
+  // Tabela para rastreamento de custos da API
+  db.run(`CREATE TABLE IF NOT EXISTS api_costs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    operation_type TEXT NOT NULL,
+    operation_id INTEGER,
+    input_tokens INTEGER DEFAULT 0,
+    output_tokens INTEGER DEFAULT 0,
+    cost_usd REAL DEFAULT 0,
+    cost_brl REAL DEFAULT 0,
+    model TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    details TEXT
   )`)
 })
 
@@ -42,7 +91,15 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB para suportar PDFs maiores
+  fileFilter: (req, file, cb) => {
+    // Aceitar imagens e PDFs
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+      cb(null, true)
+    } else {
+      cb(new Error('Apenas imagens e PDFs são permitidos'), false)
+    }
+  }
 })
 
 app.use(express.json())
@@ -103,11 +160,114 @@ app.post('/api/upload', upload.array('images'), async (req, res) => {
 
     for (const file of files) {
       const aiName = generateAIName(file.originalname, file.mimetype)
+      const filePath = path.join(uploadsDir, file.filename)
+
+      // Analisar imagem/PDF com Gemini para gerar keywords ANTES de salvar
+      // Se falhar, rejeitar o upload completamente
+      console.log(`\n📤 Iniciando upload: ${file.originalname}`)
+      console.log(`   Tipo: ${file.mimetype}`)
+      console.log(`   Caminho: ${filePath}`)
+
+      let aiAnalysis = null
+
+      let costInfo = null
+
+      try {
+        console.log(`🤖 Analisando ${file.mimetype === 'application/pdf' ? 'PDF' : 'imagem'} com IA...`)
+        aiAnalysis = await analyzeImage(filePath)
+
+        // Obter informações de custo se disponíveis
+        if (global.lastApiCost) {
+          costInfo = global.lastApiCost
+          global.lastApiCost = null // Limpar após usar
+        }
+
+        // Validar se a análise retornou keywords válidas (pelo menos 20)
+        const keywords = Array.isArray(aiAnalysis.keywords) ? aiAnalysis.keywords : []
+        const hasValidKeywords = keywords.length >= 20 && keywords.some(k => k && k.trim().length > 0)
+
+        if (!hasValidKeywords) {
+          throw new Error(`Análise da IA não retornou keywords suficientes. Recebidas: ${keywords.length}, esperado: pelo menos 20`)
+        }
+
+        console.log(`✅ Análise concluída:`)
+        console.log(`   Tipo de documento: ${aiAnalysis.documentType}`)
+        console.log(`   Keywords (${keywords.length}):`, keywords)
+        console.log(`   Descrição: ${aiAnalysis.description?.substring(0, 100)}...`)
+        console.log(`   País: ${aiAnalysis.country || 'N/A'}`)
+
+      } catch (aiError) {
+        console.error(`❌ Erro na análise AI:`, aiError.message)
+        console.error(`   Stack:`, aiError.stack)
+
+        // Deletar arquivo do disco se foi salvo
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath)
+            console.log(`   Arquivo removido do disco`)
+          } catch (unlinkError) {
+            console.error(`   Erro ao remover arquivo:`, unlinkError.message)
+          }
+        }
+
+        // Rejeitar upload - retornar erro para o frontend
+        return res.status(400).json({
+          success: false,
+          error: `Falha na análise por IA: ${aiError.message}. O arquivo não foi salvo. Certifique-se de que a GEMINI_API_KEY está configurada corretamente.`
+        })
+      }
+
+      const keywordsString = Array.isArray(aiAnalysis.keywords)
+        ? aiAnalysis.keywords.join(', ')
+        : (aiAnalysis.keywords || '')
+
+      console.log(`💾 Salvando no banco:`)
+      console.log(`   Keywords: "${keywordsString}"`)
+      console.log(`   Tipo: ${aiAnalysis.documentType}`)
 
       const result = await dbInsert(
-        'INSERT INTO images (filename, originalname, mimetype, size) VALUES (?, ?, ?, ?)',
-        [file.filename, aiName, file.mimetype, file.size]
+        `INSERT INTO images (filename, originalname, mimetype, size, ai_description, ai_keywords, ai_document_type, ai_country, ai_typical_use)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          file.filename,
+          aiName,
+          file.mimetype,
+          file.size,
+          aiAnalysis.description || '',
+          keywordsString,
+          aiAnalysis.documentType || 'imagem geral',
+          aiAnalysis.country || null,
+          aiAnalysis.typicalUse || ''
+        ]
       )
+
+      // Salvar custo da análise no banco
+      if (costInfo) {
+        await dbInsert(
+          `INSERT INTO api_costs (operation_type, operation_id, input_tokens, output_tokens, cost_usd, cost_brl, model, details)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            'image_analysis',
+            result.lastID,
+            costInfo.inputTokens,
+            costInfo.outputTokens,
+            costInfo.costUSD,
+            costInfo.costBRL,
+            costInfo.model,
+            costInfo.details
+          ]
+        )
+        console.log(`   💾 Custo salvo no banco de dados`)
+      }
+
+      console.log(`✅ Arquivo salvo com ID: ${result.lastID}`)
+      console.log(`   Verificando dados salvos...`)
+
+      // Verificar se foi salvo corretamente
+      const dbGet = promisify(db.get.bind(db))
+      const saved = await dbGet('SELECT ai_keywords, ai_document_type FROM images WHERE id = ?', [result.lastID])
+      console.log(`   Dados no banco - Keywords: "${saved?.ai_keywords || 'NULL'}", Tipo: ${saved?.ai_document_type || 'NULL'}`)
+      console.log(`\n`)
 
       uploadedImages.push({
         id: result.lastID,
@@ -115,7 +275,12 @@ app.post('/api/upload', upload.array('images'), async (req, res) => {
         originalname: aiName,
         url: `/uploads/${file.filename}`,
         mimetype: file.mimetype,
-        size: file.size
+        size: file.size,
+        ai_description: aiAnalysis.description,
+        ai_keywords: keywordsString,
+        ai_document_type: aiAnalysis.documentType,
+        ai_country: aiAnalysis.country,
+        ai_typical_use: aiAnalysis.typicalUse
       })
     }
 
@@ -131,11 +296,125 @@ app.get('/api/images', async (req, res) => {
     const images = await dbAll('SELECT * FROM images ORDER BY created_at DESC')
     const imagesWithUrl = images.map(img => ({
       ...img,
-      url: `/uploads/${img.filename}`
+      url: `/uploads/${img.filename}`,
+      ai_keywords: img.ai_keywords ? img.ai_keywords.split(', ') : []
     }))
     res.json({ success: true, images: imagesWithUrl })
   } catch (error) {
     console.error('Erro ao listar imagens:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
+app.post('/api/search', async (req, res) => {
+  try {
+    const { query } = req.body
+
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ success: false, error: 'Query vazia' })
+    }
+
+    // Buscar todos os documentos disponíveis
+    const allDocuments = await dbAll('SELECT * FROM images ORDER BY created_at DESC')
+
+    // Interpretar busca com Gemini
+    let searchCostInfo = null
+    const interpretation = await interpretSearch(query, allDocuments)
+
+    // Obter informações de custo se disponíveis
+    if (global.lastSearchCost) {
+      searchCostInfo = global.lastSearchCost
+      global.lastSearchCost = null // Limpar após usar
+    }
+
+    // Buscar documentos que correspondem aos termos
+    let matchingDocuments = []
+
+    if (interpretation.matchingDocIds && interpretation.matchingDocIds.length > 0) {
+      // Usar IDs sugeridos pelo Gemini
+      const placeholders = interpretation.matchingDocIds.map(() => '?').join(',')
+      matchingDocuments = await dbAll(
+        `SELECT * FROM images WHERE id IN (${placeholders}) ORDER BY created_at DESC`,
+        interpretation.matchingDocIds
+      )
+    } else {
+      // Busca por keywords e descrição usando LIKE
+      const searchTerms = interpretation.searchTerms || [query]
+      const conditions = []
+      const params = []
+
+      for (const term of searchTerms) {
+        conditions.push('(ai_keywords LIKE ? OR ai_description LIKE ? OR ai_document_type LIKE ? OR originalname LIKE ?)')
+        const likeTerm = `%${term}%`
+        params.push(likeTerm, likeTerm, likeTerm, likeTerm)
+      }
+
+      if (conditions.length > 0) {
+        const whereClause = conditions.join(' OR ')
+        matchingDocuments = await dbAll(
+          `SELECT * FROM images WHERE ${whereClause} ORDER BY created_at DESC`,
+          params
+        )
+      }
+    }
+
+    const documentsWithUrl = matchingDocuments.map(img => ({
+      ...img,
+      url: `/uploads/${img.filename}`,
+      ai_keywords: img.ai_keywords ? img.ai_keywords.split(', ') : []
+    }))
+
+    // Salvar custo da busca no banco
+    if (searchCostInfo) {
+      await dbInsert(
+        `INSERT INTO api_costs (operation_type, operation_id, input_tokens, output_tokens, cost_usd, cost_brl, model, details)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'search',
+          null,
+          searchCostInfo.inputTokens,
+          searchCostInfo.outputTokens,
+          searchCostInfo.costUSD,
+          searchCostInfo.costBRL,
+          searchCostInfo.model,
+          searchCostInfo.details
+        ]
+      )
+      console.log(`   💾 Custo da busca salvo no banco de dados`)
+    }
+
+    // Se não encontrou documentos, simplificar a resposta
+    if (documentsWithUrl.length === 0) {
+      res.json({
+        success: true,
+        query: query,
+        topic: 'Documento ou imagem não encontrado',
+        documents: [],
+        matchingDocIds: []
+      })
+    } else {
+      // Marcar documentos que o usuário já tem baseado nos IDs encontrados
+      const foundDocIds = new Set(documentsWithUrl.map(doc => doc.id))
+      const documentsWithStatus = (interpretation.documents || []).map(doc => {
+        // Se o documento tem um ID e está na lista de encontrados, marcar como tendo
+        const hasDocument = doc.id ? foundDocIds.has(doc.id) : false
+        return {
+          ...doc,
+          hasDocument
+        }
+      })
+
+      res.json({
+        success: true,
+        query: query,
+        topic: interpretation.topic || 'Busca realizada',
+        documents: documentsWithStatus,
+        matchingDocIds: interpretation.matchingDocIds || [],
+        searchResults: documentsWithUrl
+      })
+    }
+  } catch (error) {
+    console.error('Erro na busca:', error)
     res.status(500).json({ success: false, error: error.message })
   }
 })
@@ -307,7 +586,56 @@ app.get('/db', async (req, res) => {
   }
 })
 
+// Endpoint para visualizar custos da API
+app.get('/api/costs', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query
+
+    let query = 'SELECT * FROM api_costs'
+    const params = []
+
+    if (startDate || endDate) {
+      query += ' WHERE'
+      if (startDate) {
+        query += ' created_at >= ?'
+        params.push(startDate)
+      }
+      if (startDate && endDate) {
+        query += ' AND'
+      }
+      if (endDate) {
+        query += ' created_at <= ?'
+        params.push(endDate)
+      }
+    }
+
+    query += ' ORDER BY created_at DESC'
+
+    const costs = await dbAll(query, params)
+
+    // Calcular totais
+    const totals = costs.reduce((acc, cost) => {
+      acc.totalUSD += cost.cost_usd || 0
+      acc.totalBRL += cost.cost_brl || 0
+      acc.totalInputTokens += cost.input_tokens || 0
+      acc.totalOutputTokens += cost.output_tokens || 0
+      return acc
+    }, { totalUSD: 0, totalBRL: 0, totalInputTokens: 0, totalOutputTokens: 0 })
+
+    res.json({
+      success: true,
+      costs,
+      totals,
+      count: costs.length
+    })
+  } catch (error) {
+    console.error('Erro ao buscar custos:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`Servidor rodando em http://localhost:${PORT}`)
   console.log(`Visualizar banco de dados: http://localhost:${PORT}/db`)
+  console.log(`Visualizar custos da API: http://localhost:${PORT}/api/costs`)
 })

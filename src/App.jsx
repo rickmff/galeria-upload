@@ -14,6 +14,9 @@ function App() {
   const [renamingId, setRenamingId] = useState(null)
   const [renameValue, setRenameValue] = useState('')
   const [confirmModal, setConfirmModal] = useState(null)
+  const [searchResults, setSearchResults] = useState(null)
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchMode, setSearchMode] = useState('simple') // 'simple' or 'smart'
 
   const fileInputRef = useRef(null)
   const dropZoneRef = useRef(null)
@@ -124,10 +127,13 @@ function App() {
   }
 
   const uploadFiles = async (files) => {
-    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'))
+    const allowedTypes = ['image/', 'application/pdf']
+    const validFiles = Array.from(files).filter(file =>
+      allowedTypes.some(type => file.type.startsWith(type))
+    )
 
-    if (imageFiles.length === 0) {
-      showToast('Please select only images', 'error')
+    if (validFiles.length === 0) {
+      showToast('Por favor, selecione apenas imagens ou PDFs', 'error')
       return
     }
 
@@ -136,7 +142,7 @@ function App() {
 
     try {
       const formData = new FormData()
-      imageFiles.forEach(file => {
+      validFiles.forEach(file => {
         formData.append('images', file)
       })
 
@@ -156,7 +162,7 @@ function App() {
 
       if (data.success) {
         setImages(prev => [...data.images, ...prev])
-        showToast(`${data.images.length} image(s) uploaded successfully!`, 'success')
+        showToast(`${data.images.length} arquivo(s) enviado(s) com sucesso!`, 'success')
       } else {
         showToast('Upload error: ' + data.error, 'error')
       }
@@ -278,6 +284,55 @@ function App() {
     })
   }
 
+  const selectAllVisible = () => {
+    const visibleIds = filteredImages.map(img => img.id)
+    setSelectedImageIds(visibleIds)
+    showToast(`${visibleIds.length} arquivo(s) selecionado(s)`, 'success')
+  }
+
+  const deselectAll = () => {
+    setSelectedImageIds([])
+    showToast('Seleção removida', 'success')
+  }
+
+  const deleteSelectedImages = () => {
+    if (selectedImageIds.length === 0) return
+
+    const idsToDelete = [...selectedImageIds] // Capturar valor antes do async
+
+    setConfirmModal({
+      message: `Tem certeza que deseja deletar ${idsToDelete.length} arquivo(s)? Esta ação não pode ser desfeita.`,
+      onConfirm: async () => {
+        try {
+          const deletePromises = idsToDelete.map(id =>
+            fetch(`/api/images/${id}`, { method: 'DELETE' })
+          )
+
+          const results = await Promise.all(deletePromises)
+          const failed = results.filter(r => !r.ok)
+
+          if (failed.length === 0) {
+            setImages(prev => prev.filter(img => !idsToDelete.includes(img.id)))
+            if (selectedImage && idsToDelete.includes(selectedImage.id)) {
+              setSelectedImage(null)
+            }
+            setSelectedImageIds([])
+            showToast(`${idsToDelete.length} arquivo(s) deletado(s) com sucesso!`, 'success')
+          } else {
+            showToast(`Erro ao deletar ${failed.length} arquivo(s)`, 'error')
+          }
+        } catch (error) {
+          console.error('Erro ao deletar:', error)
+          showToast('Erro ao deletar arquivos', 'error')
+        }
+        setConfirmModal(null)
+      },
+      onCancel: () => {
+        setConfirmModal(null)
+      }
+    })
+  }
+
   const handleImageDoubleClick = (image) => {
     setSelectedImage(image)
   }
@@ -309,9 +364,90 @@ function App() {
     }
   }
 
-  const filteredImages = images.filter(img =>
-    img.originalname.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const performSmartSearch = async (query) => {
+    if (!query.trim()) {
+      setSearchResults(null)
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const response = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setSearchResults(data)
+      } else {
+        showToast('Erro na busca: ' + data.error, 'error')
+      }
+    } catch (error) {
+      console.error('Erro na busca:', error)
+      showToast('Erro ao realizar busca', 'error')
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value
+    setSearchTerm(value)
+    // Limpar resultados de busca inteligente quando o usuário digita
+    if (searchResults) {
+      setSearchResults(null)
+    }
+  }
+
+  const handleSmartSearchClick = () => {
+    if (searchTerm.trim()) {
+      performSmartSearch(searchTerm)
+    } else {
+      showToast('Digite algo para buscar', 'error')
+    }
+  }
+
+  const filteredImages = searchResults
+    ? (searchResults.searchResults || searchResults.documents || [])
+    : images.filter(img => {
+      if (!searchTerm.trim()) return true
+
+      const searchLower = searchTerm.toLowerCase()
+      const searchTerms = searchLower.split(/\s+/).filter(t => t.length > 0)
+
+      // Buscar no nome do arquivo
+      const nameMatch = img.originalname.toLowerCase().includes(searchLower)
+
+      // Processar keywords (pode ser array ou string separada por vírgula)
+      let keywordsArray = []
+      if (Array.isArray(img.ai_keywords)) {
+        keywordsArray = img.ai_keywords
+      } else if (typeof img.ai_keywords === 'string' && img.ai_keywords.trim()) {
+        keywordsArray = img.ai_keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
+      }
+
+      // Buscar nas keywords
+      const keywordsMatch = keywordsArray.some(k =>
+        k.toLowerCase().includes(searchLower) ||
+        searchTerms.some(st => k.toLowerCase().includes(st))
+      )
+
+      // Buscar no tipo de documento
+      const typeMatch = img.ai_document_type && (
+        img.ai_document_type.toLowerCase().includes(searchLower) ||
+        searchTerms.some(st => img.ai_document_type.toLowerCase().includes(st))
+      )
+
+      // Buscar na descrição
+      const descriptionMatch = img.ai_description && (
+        img.ai_description.toLowerCase().includes(searchLower) ||
+        searchTerms.some(st => img.ai_description.toLowerCase().includes(st))
+      )
+
+      return nameMatch || keywordsMatch || typeMatch || descriptionMatch
+    })
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes'
@@ -422,26 +558,89 @@ function App() {
       <main className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex gap-4 items-center mb-6">
           <div className="flex-1 flex items-center gap-3">
-            <input
-              type="text"
-              placeholder="Search images..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border border-input rounded-lg bg-background text-foreground text-sm transition-all focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
-            />
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="Buscar por nome... ou use busca inteligente"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                className="w-full px-3 py-2 pr-10 border border-input rounded-lg bg-background text-foreground text-sm transition-all focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
+              />
+              <button
+                onClick={handleSmartSearchClick}
+                disabled={isSearching || !searchTerm.trim()}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md cursor-pointer transition-all border-none inline-flex items-center justify-center bg-transparent text-muted-foreground hover:text-primary hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Busca inteligente com IA"
+              >
+                {isSearching ? (
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                  </svg>
+                )}
+              </button>
+            </div>
             {searchTerm && (
               <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {filteredImages.length} of {images.length}
+                {filteredImages.length} {searchResults ? 'encontrado(s)' : `de ${images.length}`}
               </span>
             )}
           </div>
-          {selectedImageIds.length > 0 && (
-            <button
-              onClick={downloadSelectedImages}
-              className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border-none inline-flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Download ({selectedImageIds.length})
-            </button>
+          {filteredImages.length > 0 && (
+            <div className="flex gap-2 items-center">
+              {selectedImageIds.length === 0 ? (
+                <button
+                  onClick={selectAllVisible}
+                  className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border border-border inline-flex items-center justify-center bg-background text-foreground hover:bg-accent gap-2"
+                  title="Selecionar todos os arquivos visíveis"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                  </svg>
+                  Selecionar Todos
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={deselectAll}
+                    className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border border-border inline-flex items-center justify-center bg-background text-foreground hover:bg-accent gap-2"
+                    title="Remover seleção"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Desmarcar ({selectedImageIds.length})
+                  </button>
+                  <button
+                    onClick={deleteSelectedImages}
+                    className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border-none inline-flex items-center justify-center bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
+                    title="Deletar arquivos selecionados"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18"></path>
+                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                    </svg>
+                    Deletar ({selectedImageIds.length})
+                  </button>
+                  <button
+                    onClick={downloadSelectedImages}
+                    className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border-none inline-flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Download ({selectedImageIds.length})
+                  </button>
+                </>
+              )}
+            </div>
           )}
           <label htmlFor="file-input" className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all border-none inline-flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90">
             {loading ? 'Uploading...' : 'Upload'}
@@ -451,11 +650,77 @@ function App() {
             type="file"
             id="file-input"
             multiple
-            accept="image/*"
+            accept="image/*,.pdf,application/pdf"
             onChange={handleFileChange}
             className="hidden"
           />
         </div>
+
+        {searchResults && (searchResults.topic || searchResults.interpretation) && (
+          <div className="mb-4 p-4 bg-card border border-border rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-medium text-primary">
+                  {searchResults.topic || searchResults.interpretation}
+                </p>
+                {searchResults.documents && searchResults.documents.length > 0 && (
+                  <ul className="list-none space-y-1.5">
+                    {searchResults.documents.map((doc, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-xs text-primary/90">
+                        <span className="mt-0.5 shrink-0">
+                          {doc.hasDocument ? (
+                            <span className="text-green-600 dark:text-green-400">✓</span>
+                          ) : (
+                            <span className="text-gray-400">○</span>
+                          )}
+                        </span>
+                        <span className="flex-1">
+                          <span className={doc.hasDocument ? 'text-primary' : 'text-primary/70'}>
+                            {doc.name}
+                          </span>
+                          {!doc.hasDocument && doc.howToGet && (
+                            <span className="text-primary/60 ml-1">
+                              ({doc.howToGet})
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {(!searchResults.documents || searchResults.documents.length === 0) && searchResults.missingDocuments && searchResults.missingDocuments.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Documentos que faltam:</p>
+                    <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                      {searchResults.missingDocuments.map((doc, idx) => (
+                        <li key={idx}>{doc}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(!searchResults.documents || searchResults.documents.length === 0) && searchResults.suggestions && searchResults.suggestions.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-primary mb-1">Sugestões:</p>
+                    <ul className="list-disc list-inside text-xs text-primary/80 space-y-1">
+                      {searchResults.suggestions.map((suggestion, idx) => (
+                        <li key={idx}>{suggestion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setSearchResults(null)
+                  setSearchTerm('')
+                }}
+                className="w-6 h-6 p-0 rounded-md bg-transparent border-none cursor-pointer flex items-center justify-center text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
         {filteredImages.length > 0 ? (
           <div className={`${viewMode === 'grid' ? 'grid gap-4 grid-cols-[repeat(auto-fill,minmax(280px,1fr))]' : 'flex flex-col gap-2'}`}>
@@ -469,12 +734,27 @@ function App() {
                   onDoubleClick={() => handleImageDoubleClick(image)}
                 >
                   <div className={`relative overflow-hidden bg-muted ${viewMode === 'list' ? 'w-20 h-[60px] flex-shrink-0 rounded-md' : 'w-full aspect-square'}`}>
-                    <img
-                      src={image.url}
-                      alt={image.originalname}
-                      loading="lazy"
-                      className={`w-full h-full object-cover transition-transform duration-500 ${isSelected ? 'scale-105' : 'group-hover:scale-110'}`}
-                    />
+                    {image.mimetype === 'application/pdf' ? (
+                      <div className="w-full h-full flex items-center justify-center bg-red-50 dark:bg-red-900/20">
+                        <div className="text-center p-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mx-auto mb-2 text-red-600 dark:text-red-400">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                          </svg>
+                          <p className="text-xs font-medium text-red-600 dark:text-red-400">PDF</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <img
+                        src={image.url}
+                        alt={image.originalname}
+                        loading="lazy"
+                        className={`w-full h-full object-cover transition-transform duration-500 ${isSelected ? 'scale-105' : 'group-hover:scale-110'}`}
+                      />
+                    )}
 
                     {/* Selection Overlay (Google Photos Style) */}
                     <div className={`absolute inset-0 transition-all duration-200 ${isSelected ? 'bg-blue-500/20 opacity-100' : 'opacity-0 group-hover:opacity-100 bg-black/10'}`}>
@@ -568,10 +848,25 @@ function App() {
                           )}
                         </div>
                         {viewMode === 'list' && (
-                          <div className="flex gap-2 text-[0.6875rem] text-muted-foreground flex-wrap gap-1.5">
+                          <div className="flex gap-1.5 text-[0.6875rem] text-muted-foreground flex-wrap">
                             <span>{formatFileSize(image.size)}</span>
                             <span>•</span>
                             <span>{formatDate(image.created_at)}</span>
+                            {image.ai_document_type && image.ai_document_type !== 'imagem geral' && (
+                              <>
+                                <span>•</span>
+                                <span className="px-1.5 py-0.5 rounded bg-primary/20 text-primary text-[0.625rem] font-medium">
+                                  {image.ai_document_type}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        )}
+                        {viewMode === 'grid' && image.ai_document_type && image.ai_document_type !== 'imagem geral' && (
+                          <div className="mt-1">
+                            <span className="px-1.5 py-0.5 rounded bg-primary/20 text-white text-[0.625rem] font-medium">
+                              {image.ai_document_type}
+                            </span>
                           </div>
                         )}
                       </>
@@ -590,7 +885,17 @@ function App() {
               </>
             ) : searchTerm ? (
               <>
-                <p>No images found for "{searchTerm}"</p>
+                <p>Nenhum documento encontrado para "{searchTerm}"</p>
+                {searchResults && searchResults.missingDocuments && searchResults.missingDocuments.length > 0 && (
+                  <div className="mt-4 p-4 bg-card border border-border rounded-lg max-w-md mx-auto text-left">
+                    <p className="text-sm font-medium mb-2">Documentos que você pode precisar:</p>
+                    <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                      {searchResults.missingDocuments.map((doc, idx) => (
+                        <li key={idx}>{doc}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </>
             ) : (
               <>
@@ -614,11 +919,19 @@ function App() {
             >
               ✕
             </button>
-            <img
-              src={selectedImage.url}
-              alt={selectedImage.originalname}
-              className="w-full h-auto max-h-[70vh] object-contain block"
-            />
+            {selectedImage.mimetype === 'application/pdf' ? (
+              <iframe
+                src={selectedImage.url}
+                className="w-full h-[70vh] border-none"
+                title={selectedImage.originalname}
+              />
+            ) : (
+              <img
+                src={selectedImage.url}
+                alt={selectedImage.originalname}
+                className="w-full h-auto max-h-[70vh] object-contain block"
+              />
+            )}
             <div className="p-4">
               <h3 className="text-base font-semibold mb-2">{selectedImage.originalname}</h3>
               <div className="flex gap-4 flex-wrap text-sm text-muted-foreground">
