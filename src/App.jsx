@@ -414,36 +414,42 @@ function App() {
     : images.filter(img => {
       if (!searchTerm.trim()) return true
 
-      const searchLower = searchTerm.toLowerCase()
-      const searchTerms = searchLower.split(/\s+/).filter(t => t.length > 0)
+      const searchLower = searchTerm.toLowerCase().trim()
+      const searchTerms = searchLower.split(/\s+/).filter(t => t.length > 2) // Filtrar palavras muito curtas
 
-      // Buscar no nome do arquivo
+      // Buscar no nome do arquivo (busca parcial)
       const nameMatch = img.originalname.toLowerCase().includes(searchLower)
 
       // Processar keywords (pode ser array ou string separada por vírgula)
       let keywordsArray = []
       if (Array.isArray(img.ai_keywords)) {
-        keywordsArray = img.ai_keywords
+        keywordsArray = img.ai_keywords.map(k => k.toLowerCase().trim())
       } else if (typeof img.ai_keywords === 'string' && img.ai_keywords.trim()) {
-        keywordsArray = img.ai_keywords.split(',').map(k => k.trim()).filter(k => k.length > 0)
+        keywordsArray = img.ai_keywords.split(',').map(k => k.trim().toLowerCase()).filter(k => k.length > 0)
       }
 
-      // Buscar nas keywords
-      const keywordsMatch = keywordsArray.some(k =>
-        k.toLowerCase().includes(searchLower) ||
-        searchTerms.some(st => k.toLowerCase().includes(st))
+      // Buscar nas keywords - comparação de palavras completas
+      const keywordsMatch = searchTerms.some(searchWord => {
+        // Verifica se alguma keyword contém a palavra de busca completa
+        return keywordsArray.some(keyword => {
+          // Divide a keyword em palavras e compara
+          const keywordWords = keyword.split(/\s+/)
+          return keywordWords.some(kw => kw === searchWord || kw.startsWith(searchWord) || searchWord.startsWith(kw))
+        })
+      })
+
+      // Buscar no tipo de documento - comparação de palavras
+      const typeLower = img.ai_document_type ? img.ai_document_type.toLowerCase() : ''
+      const typeWords = typeLower.split(/\s+/)
+      const typeMatch = searchTerms.some(searchWord =>
+        typeWords.some(tw => tw === searchWord || tw.startsWith(searchWord) || searchWord.startsWith(tw))
       )
 
-      // Buscar no tipo de documento
-      const typeMatch = img.ai_document_type && (
-        img.ai_document_type.toLowerCase().includes(searchLower) ||
-        searchTerms.some(st => img.ai_document_type.toLowerCase().includes(st))
-      )
-
-      // Buscar na descrição
-      const descriptionMatch = img.ai_description && (
-        img.ai_description.toLowerCase().includes(searchLower) ||
-        searchTerms.some(st => img.ai_description.toLowerCase().includes(st))
+      // Buscar na descrição - comparação de palavras
+      const descLower = img.ai_description ? img.ai_description.toLowerCase() : ''
+      const descWords = descLower.split(/\s+/)
+      const descriptionMatch = searchTerms.some(searchWord =>
+        descWords.some(dw => dw === searchWord || dw.startsWith(searchWord) || searchWord.startsWith(dw))
       )
 
       return nameMatch || keywordsMatch || typeMatch || descriptionMatch

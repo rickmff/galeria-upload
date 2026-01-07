@@ -92,17 +92,22 @@ Se for um documento, identifique PRECISAMENTE o tipo:
 - etc.
 
 Para keywords, gere PELO MENOS 20 palavras-chave relevantes incluindo:
-- O tipo de documento em português (ex: "passaporte", "identidade", "comprovante")
+- O nome completo do documento em português (ex: "Passaporte", "Título de Residência", "Formulário de Pedido de Renovação")
 - Sinônimos e variações do tipo de documento
-- Palavras relacionadas ao uso do documento
-- Contexto de uso (ex: "viagem", "trabalho", "estudo", "residência")
-- País se identificável
-- Características visíveis (ex: "foto", "assinatura", "carimbo", "selo")
-- Cores predominantes se relevante
-- Formato (ex: "digital", "escaneado", "original")
-- Validade se visível (ex: "válido", "expirado")
-- Instituição emissora se visível
-- Outras palavras relevantes do conteúdo
+- Palavras relacionadas ao uso do documento e processo (ex: "renovação", "autorização", "residência", "imigração")
+- Contexto de uso (ex: "viagem", "trabalho", "estudo", "residência em Portugal")
+- País se identificável (ex: "Portugal", "Brasil")
+- Instituição emissora se visível (ex: "AIMA", "SEF", "Segurança Social", "Autoridade Tributária")
+- Características visíveis (ex: "foto", "assinatura", "carimbo", "selo", "válido")
+- Formato (ex: "digital", "escaneado", "original", "online")
+- Validade se visível (ex: "válido", "expirado", "dentro do prazo")
+- Termos relacionados ao processo (ex: "renovação de autorização", "pedido de residência", "certidão de não dívida")
+- Outras palavras relevantes do conteúdo e processo relacionado
+
+IMPORTANTE:
+- As keywords devem ser descritivas e incluir termos que ajudem na busca, como nomes de órgãos, processos e documentos relacionados
+- NÃO inclua instruções de "como obter" nas keywords - apenas descrições do documento e termos relacionados
+- Use termos completos e descritivos que facilitem o match com buscas por IA
 
 Se NÃO for um documento, gere pelo menos 20 keywords descrevendo:
 - O que aparece na imagem
@@ -199,17 +204,29 @@ CRÍTICO: Retorne SEMPRE pelo menos 20 keywords no array. Seja criativo e detalh
       const docType = parsed.documentType?.toLowerCase() || 'imagem geral'
       const additionalKeywords = []
 
-      // Adicionar variações do tipo de documento
+      // Adicionar variações do tipo de documento com termos mais descritivos
       if (docType.includes('passaporte')) {
-        additionalKeywords.push('passaporte', 'documento viagem', 'identificação internacional', 'viagem', 'turismo', 'fronteira', 'imigração', 'país', 'nacionalidade')
+        additionalKeywords.push('Passaporte', 'Documento de Viagem', 'Identificação Internacional', 'Viagem Internacional', 'Fronteira', 'Imigração', 'Nacionalidade', 'Visto', 'Entrada no País', 'Saída do País', 'Aeroporto', 'Consulado')
       } else if (docType.includes('identidade') || docType.includes('rg')) {
-        additionalKeywords.push('identidade', 'rg', 'registro geral', 'documento identidade', 'cpf', 'brasileiro', 'cidadão')
+        additionalKeywords.push('Carteira de Identidade', 'RG', 'Registro Geral', 'Documento de Identidade', 'CPF', 'Brasileiro', 'Cidadão', 'Nacional', 'Identificação Pessoal')
       } else if (docType.includes('comprovante')) {
-        additionalKeywords.push('comprovante', 'comprovação', 'evidência', 'prova', 'documento comprobatório')
+        additionalKeywords.push('Comprovante', 'Comprovação', 'Evidência', 'Prova Documental', 'Documento Comprobatório', 'Atestado', 'Declaração')
+      } else if (docType.includes('residência') || docType.includes('morada') || docType.includes('alojamento')) {
+        additionalKeywords.push('Autorização de Residência', 'Título de Residência', 'Renovação de Residência', 'Morada', 'Endereço', 'Domicílio', 'Habitação', 'Portugal', 'AIMA', 'SEF', 'Imigração')
+      } else if (docType.includes('nif') || docType.includes('fiscal')) {
+        additionalKeywords.push('NIF', 'Número de Identificação Fiscal', 'Autoridade Tributária', 'Portal das Finanças', 'Certidão de Não Dívida', 'AT')
+      } else if (docType.includes('segurança social') || docType.includes('seguranca')) {
+        additionalKeywords.push('Segurança Social', 'Segurança Social Direta', 'Certidão de Não Dívida', 'Portal da Segurança Social', 'Balcão de Atendimento')
+      } else if (docType.includes('formulário') || docType.includes('formulario')) {
+        additionalKeywords.push('Formulário', 'Formulário Online', 'Portal Online', 'Submissão Online', 'Preenchimento', 'Submeter')
+      } else if (docType.includes('meios') || docType.includes('subsistência') || docType.includes('subsistencia')) {
+        additionalKeywords.push('Comprovativo de Meios de Subsistência', 'Declarações Bancárias', 'Recibos de Vencimento', 'Contrato de Trabalho', 'Meios Financeiros')
+      } else if (docType.includes('matrícula') || docType.includes('matricula') || docType.includes('estudante')) {
+        additionalKeywords.push('Comprovativo de Matrícula', 'Estudante', 'Instituição de Ensino', 'Frequência Escolar', 'Matrícula Escolar')
       }
 
-      // Adicionar termos genéricos se ainda não tiver 20
-      const genericTerms = ['documento', 'arquivo', 'imagem', 'digital', 'escaneado', 'oficial', 'válido', 'assinado', 'carimbado', 'selado', 'foto', 'fotografia']
+      // Adicionar termos genéricos mais descritivos se ainda não tiver 20
+      const genericTerms = ['Documento Oficial', 'Arquivo Digital', 'Documento Escaneado', 'Documento Original', 'Documento Válido', 'Assinado', 'Carimbado', 'Selado', 'Foto Tipo Passe', 'Fotografia', 'Formulário Preenchido', 'Certificado', 'Registro Oficial', 'Documento Português', 'Processo Burocrático']
 
       for (const term of [...additionalKeywords, ...genericTerms]) {
         if (keywords.length >= 20) break
@@ -278,25 +295,28 @@ ${JSON.stringify(docSummary, null, 2)}
 
 Analise a busca e responda em JSON:
 {
-  "topic": "tema principal da busca (ex: 'Rendimento das Pessoas Singulares (IRS)', 'Autorização de Residência', etc.)",
+  "topic": "tema principal da busca (ex: 'Renovação de Autorização de Residência', 'Rendimento das Pessoas Singulares (IRS)', etc.)",
   "searchTerms": ["termos", "para", "buscar", "no", "banco"],
-  "matchingDocIds": [ids dos documentos que correspondem à busca],
+  "matchingDocIds": [ids dos documentos que correspondem à busca - pode estar vazio se não encontrar],
   "documents": [
     {
-      "id": id do documento se existir no sistema,
+      "id": id do documento se existir no sistema (pode ser null),
       "name": "nome do documento",
       "hasDocument": true/false,
-      "howToGet": "como conseguir este documento (apenas se hasDocument for false)"
+      "howToGet": "instruções curtas de como conseguir este documento (obrigatório se hasDocument for false)"
     }
   ]
 }
 
+CRÍTICO: Você DEVE sempre retornar uma lista completa de documentos necessários para o tema, mesmo que o usuário não tenha nenhum documento no sistema. Se matchingDocIds estiver vazio, todos os documentos devem ter hasDocument: false e howToGet preenchido.
+
 IMPORTANTE:
 - O campo "topic" deve ser apenas o tema/título, sem prefixos como "O usuário está procurando"
-- O campo "documents" deve listar TODOS os documentos relevantes para o tema
+- O campo "documents" deve listar TODOS os documentos relevantes para o tema, mesmo que o usuário não tenha nenhum
 - Para documentos que o usuário JÁ TEM (presentes em matchingDocIds), marque hasDocument: true
 - Para documentos que FALTAM, marque hasDocument: false e forneça instruções em "howToGet"
-- Se não encontrar documentos correspondentes, retorne matchingDocIds vazio e topic simples como "documento não encontrado"
+- SEMPRE retorne uma lista completa de documentos necessários para o tema, mesmo que matchingDocIds esteja vazio
+- Se não encontrar documentos correspondentes, ainda assim liste TODOS os documentos necessários com hasDocument: false
 - Seja direto e objetivo no topic
 - Não mencione processos burocráticos a menos que seja relevante
 

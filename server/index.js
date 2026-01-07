@@ -383,14 +383,21 @@ app.post('/api/search', async (req, res) => {
       console.log(`   💾 Custo da busca salvo no banco de dados`)
     }
 
-    // Se não encontrou documentos, simplificar a resposta
+    // Se não encontrou documentos, ainda retornar a lista de documentos necessários
     if (documentsWithUrl.length === 0) {
+      // Marcar todos os documentos como não possuídos se não encontrou nenhum
+      const documentsWithStatus = (interpretation.documents || []).map(doc => ({
+        ...doc,
+        hasDocument: false
+      }))
+
       res.json({
         success: true,
         query: query,
-        topic: 'Documento ou imagem não encontrado',
-        documents: [],
-        matchingDocIds: []
+        topic: interpretation.topic || 'Documentos necessários',
+        documents: documentsWithStatus,
+        matchingDocIds: [],
+        searchResults: []
       })
     } else {
       // Marcar documentos que o usuário já tem baseado nos IDs encontrados
