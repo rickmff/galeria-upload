@@ -48,10 +48,10 @@ export function calculateCost(model, inputTokens, outputTokens) {
 export async function analyzeImage(imagePath) {
   try {
     // Carregar API key diretamente do ambiente e limpar
-    const apiKey = (process.env.GEMINI_API_KEY || '').trim()
+    const apiKey = (process.env.GEMINI_API_KEY_AI || '').trim()
 
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY não configurada. Configure a API key do Gemini para fazer upload de arquivos.')
+      throw new Error('GEMINI_API_KEY_AI não configurada. Configure a API key do Gemini para fazer upload de arquivos.')
     }
 
     // Validar formato básico da API key
@@ -255,7 +255,7 @@ CRÍTICO: Retorne SEMPRE pelo menos 20 keywords no array. Seja criativo e detalh
       console.error(`   ⚠️  Erro de parse JSON - resposta pode estar malformada`)
     }
     if (error.message.includes('403') || error.message.includes('Forbidden')) {
-      throw new Error('API Key inválida ou sem permissões. Verifique sua GEMINI_API_KEY no Google AI Studio.')
+      throw new Error('API Key inválida ou sem permissões. Verifique sua GEMINI_API_KEY_AI no Google AI Studio.')
     }
     console.error(`   Stack:`, error.stack)
     // Re-throw o erro para que o upload seja bloqueado
@@ -271,7 +271,7 @@ CRÍTICO: Retorne SEMPRE pelo menos 20 keywords no array. Seja criativo e detalh
  */
 export async function interpretSearch(userQuery, availableDocuments) {
   try {
-    const apiKey = (process.env.GEMINI_API_KEY || '').trim()
+    const apiKey = (process.env.GEMINI_API_KEY_AI || '').trim()
     if (!apiKey) {
       return getBasicSearchInterpretation(userQuery)
     }
@@ -385,7 +385,7 @@ function getBasicAnalysis(imagePath) {
   const baseName = filename.split('.')[0]
   console.log(`⚠️  Usando análise básica para: ${filename} (API key não configurada)`)
   // Retornar keywords vazias para forçar erro se API key não estiver configurada
-  throw new Error('GEMINI_API_KEY não configurada. Configure a API key do Gemini para fazer upload de arquivos.')
+  throw new Error('GEMINI_API_KEY_AI não configurada. Configure a API key do Gemini para fazer upload de arquivos.')
 }
 
 function getBasicSearchInterpretation(query) {

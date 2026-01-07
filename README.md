@@ -25,7 +25,7 @@ npm install
 2. Crie um arquivo `.env` na raiz do projeto:
 
 ```env
-GEMINI_API_KEY=sua_api_key_aqui
+GEMINI_API_KEY_AI=sua_api_key_aqui
 ```
 
 **Nota:** O arquivo `.env` já está no `.gitignore` para segurança.

@@ -13,14 +13,14 @@ const envPath = path.join(process.cwd(), '.env')
 dotenv.config({ path: envPath })
 
 // Verificar se a API key está configurada
-const apiKey = (process.env.GEMINI_API_KEY || '').trim()
+const apiKey = (process.env.GEMINI_API_KEY_AI || '').trim()
 if (!apiKey) {
-  console.warn('⚠️  GEMINI_API_KEY não encontrada no .env')
+  console.warn('⚠️  GEMINI_API_KEY_AI não encontrada no .env')
   console.warn(`   Procurando em: ${envPath}`)
-  console.warn('   Crie um arquivo .env na raiz do projeto com: GEMINI_API_KEY=sua_chave_aqui')
+  console.warn('   Crie um arquivo .env na raiz do projeto com: GEMINI_API_KEY_AI=sua_chave_aqui')
   console.warn('   Obtenha sua chave gratuita em: https://aistudio.google.com/apikey')
 } else {
-  console.log(`✅ GEMINI_API_KEY configurada (${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)})`)
+  console.log(`✅ GEMINI_API_KEY_AI configurada (${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)})`)
   console.log(`   Análise inteligente ativada`)
 
   // Validar formato básico
@@ -213,7 +213,7 @@ app.post('/api/upload', upload.array('images'), async (req, res) => {
         // Rejeitar upload - retornar erro para o frontend
         return res.status(400).json({
           success: false,
-          error: `Falha na análise por IA: ${aiError.message}. O arquivo não foi salvo. Certifique-se de que a GEMINI_API_KEY está configurada corretamente.`
+          error: `Falha na análise por IA: ${aiError.message}. O arquivo não foi salvo. Certifique-se de que a GEMINI_API_KEY_AI está configurada corretamente.`
         })
       }
 
